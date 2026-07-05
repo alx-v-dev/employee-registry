@@ -21,6 +21,13 @@ class EmployeeForm(BaseModel):
         value = str(value).strip()
         return value or None
 
+    @field_validator("last_name", "first_name", "middle_name")
+    @classmethod
+    def format_name(cls, value: str | None) -> str | None:
+        if not value:
+            return value
+        return "-".join(part[:1].upper() + part[1:].lower() for part in value.split("-"))
+
     @field_validator("last_name", "first_name")
     @classmethod
     def required_text(cls, value: str | None) -> str:
@@ -31,7 +38,8 @@ class EmployeeForm(BaseModel):
     @field_validator("birth_date")
     @classmethod
     def birth_date_must_be_past(cls, value: date) -> date:
+        if value.year < 1000:
+            raise ValueError("Год рождения должен быть указан четырьмя цифрами")
         if value >= date.today():
             raise ValueError("Дата рождения должна быть в прошлом")
         return value
-

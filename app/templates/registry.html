@@ -57,4 +57,28 @@
       </tbody>
     </table>
   </section>
+
+  {% if pagination.total_pages > 1 %}
+    <nav class="pagination" aria-label="Пагинация">
+      {% if pagination.previous_url %}
+        <a class="button small" href="{{ pagination.previous_url }}">Назад</a>
+      {% else %}
+        <span class="button small disabled">Назад</span>
+      {% endif %}
+
+      {% for link in pagination.page_links %}
+        {% if link.active %}
+          <span class="button small active">{{ link.number }}</span>
+        {% else %}
+          <a class="button small" href="{{ link.url }}">{{ link.number }}</a>
+        {% endif %}
+      {% endfor %}
+
+      {% if pagination.next_url %}
+        <a class="button small" href="{{ pagination.next_url }}">Вперёд</a>
+      {% else %}
+        <span class="button small disabled">Вперёд</span>
+      {% endif %}
+    </nav>
+  {% endif %}
 {% endblock %}

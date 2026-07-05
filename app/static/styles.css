@@ -117,6 +117,18 @@ select {
   padding: 5px 10px;
 }
 
+.button.active {
+  border-color: var(--primary);
+  color: var(--primary);
+  font-weight: 700;
+}
+
+.button.disabled,
+.button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
 .button.danger {
   border-color: #f0c4c4;
   color: var(--danger);
@@ -124,6 +136,21 @@ select {
 
 .table-wrap {
   overflow-x: auto;
+}
+
+.pagination {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+  flex-wrap: wrap;
+}
+
+.duplicate-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+  flex-wrap: wrap;
 }
 
 table {
@@ -244,6 +271,32 @@ label span {
 .form-actions {
   justify-content: flex-end;
   margin-top: 22px;
+}
+
+.file-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.upload-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.upload-button {
+  display: inline-flex;
+  width: auto;
+}
+
+.upload-error {
+  display: block;
+  min-height: 18px;
+  margin-top: 6px;
+  color: var(--danger);
+  font-size: 13px;
 }
 
 .current-photo {

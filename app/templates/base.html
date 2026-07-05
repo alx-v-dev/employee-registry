@@ -9,11 +9,13 @@
   <body>
     <header class="topbar">
       <a class="brand" href="/">Реестр сотрудников</a>
-      <a class="button primary" href="/employees/new">Добавить</a>
+      {% if request.url.path != "/employees/new" and title != "Новый сотрудник" %}
+        <a class="button primary" href="/employees/new">Добавить сотрудника</a>
+      {% endif %}
     </header>
     <main class="page">
       {% block content %}{% endblock %}
     </main>
+    {% block scripts %}{% endblock %}
   </body>
 </html>
-

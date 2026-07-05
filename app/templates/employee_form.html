@@ -3,7 +3,6 @@
   <form class="form" method="post" action="{{ '/employees/' ~ employee.id if employee else '/employees' }}" enctype="multipart/form-data">
     <div class="form-head">
       <h1>{{ title }}</h1>
-      <a class="button subtle" href="/">Отмена</a>
     </div>
 
     {% if errors %}
@@ -11,25 +10,31 @@
         {% for error in errors %}
           <p>{{ error.msg }}</p>
         {% endfor %}
+        {% if duplicate_warning %}
+          <div class="duplicate-actions">
+            <a class="button small" href="#employee-form-fields">Продолжить ввод данных</a>
+            <a class="button small subtle" href="/">Вернуться на главную</a>
+          </div>
+        {% endif %}
       </div>
     {% endif %}
 
-    <div class="grid">
+    <div class="grid" id="employee-form-fields">
       <label>
         <span>Фамилия *</span>
-        <input name="last_name" required maxlength="80" value="{{ values.last_name }}">
+        <input name="last_name" required maxlength="80" value="{{ values.last_name }}" data-name-input>
       </label>
       <label>
         <span>Имя *</span>
-        <input name="first_name" required maxlength="80" value="{{ values.first_name }}">
+        <input name="first_name" required maxlength="80" value="{{ values.first_name }}" data-name-input>
       </label>
       <label>
         <span>Отчество</span>
-        <input name="middle_name" maxlength="80" value="{{ values.middle_name }}">
+        <input name="middle_name" maxlength="80" value="{{ values.middle_name }}" data-name-input>
       </label>
       <label>
         <span>Дата рождения *</span>
-        <input type="date" name="birth_date" required value="{{ values.birth_date }}">
+        <input type="date" name="birth_date" required min="{{ min_birth_date }}" max="{{ max_birth_date }}" value="{{ values.birth_date }}">
       </label>
       <label>
         <span>Пол *</span>
@@ -40,11 +45,15 @@
       </label>
       <label>
         <span>Телефон *</span>
-        <input name="phone" required maxlength="32" value="{{ values.phone }}">
+        <input name="phone" required maxlength="32" value="{{ values.phone }}" inputmode="tel" placeholder="+7 (___) ___-__-__" data-phone-input>
       </label>
       <label>
         <span>Фото, до 200 КБ</span>
-        <input type="file" name="photo" accept="image/png,image/jpeg,image/webp,image/gif">
+        <span class="upload-row">
+          <label class="button upload-button" for="photo">Загрузить</label>
+        </span>
+        <input id="photo" class="file-input" type="file" name="photo" accept="image/png,image/jpeg,image/webp,image/gif" data-max-size="{{ max_photo_size }}">
+        <span class="upload-error" data-upload-error></span>
       </label>
     </div>
 
@@ -57,6 +66,18 @@
 
     <div class="form-actions">
       <button class="button primary" type="submit">Сохранить</button>
+      <a class="button subtle" href="/">Отмена</a>
     </div>
   </form>
+{% endblock %}
+
+{% block scripts %}
+  {% if duplicate_warning %}
+    <script>
+      window.addEventListener("DOMContentLoaded", () => {
+        window.alert("Сотрудник с такими данными уже существует");
+      });
+    </script>
+  {% endif %}
+  <script src="{{ url_for('static', path='/form.js') }}"></script>
 {% endblock %}
