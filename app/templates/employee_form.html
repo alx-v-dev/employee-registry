@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block content %}
+  <form class="form" method="post" action="{{ '/employees/' ~ employee.id if employee else '/employees' }}" enctype="multipart/form-data">
+    <div class="form-head">
+      <h1>{{ title }}</h1>
+      <a class="button subtle" href="/">Отмена</a>
+    </div>
+
+    {% if errors %}
+      <div class="errors">
+        {% for error in errors %}
+          <p>{{ error.msg }}</p>
+        {% endfor %}
+      </div>
+    {% endif %}
+
+    <div class="grid">
+      <label>
+        <span>Фамилия *</span>
+        <input name="last_name" required maxlength="80" value="{{ values.last_name }}">
+      </label>
+      <label>
+        <span>Имя *</span>
+        <input name="first_name" required maxlength="80" value="{{ values.first_name }}">
+      </label>
+      <label>
+        <span>Отчество</span>
+        <input name="middle_name" maxlength="80" value="{{ values.middle_name }}">
+      </label>
+      <label>
+        <span>Дата рождения *</span>
+        <input type="date" name="birth_date" required value="{{ values.birth_date }}">
+      </label>
+      <label>
+        <span>Пол *</span>
+        <select name="gender" required>
+          <option value="male" {% if values.gender == "male" %}selected{% endif %}>Мужской</option>
+          <option value="female" {% if values.gender == "female" %}selected{% endif %}>Женский</option>
+        </select>
+      </label>
+      <label>
+        <span>Телефон *</span>
+        <input name="phone" required maxlength="32" value="{{ values.phone }}">
+      </label>
+      <label>
+        <span>Фото, до 200 КБ</span>
+        <input type="file" name="photo" accept="image/png,image/jpeg,image/webp,image/gif">
+      </label>
+    </div>
+
+    {% if employee and employee.photo_path %}
+      <div class="current-photo">
+        <img class="avatar" src="{{ employee.photo_path }}" alt="{{ employee.full_name }}">
+        <span>Текущее фото</span>
+      </div>
+    {% endif %}
+
+    <div class="form-actions">
+      <button class="button primary" type="submit">Сохранить</button>
+    </div>
+  </form>
+{% endblock %}

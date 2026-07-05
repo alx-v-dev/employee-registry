@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% set title = "Реестр сотрудников" %}
+{% block content %}
+  <section class="toolbar">
+    <form class="filters" method="get">
+      <input type="search" name="q" value="{{ filters.q }}" placeholder="ФИО или телефон">
+      <select name="gender">
+        <option value="">Любой пол</option>
+        <option value="male" {% if filters.gender == "male" %}selected{% endif %}>Мужской</option>
+        <option value="female" {% if filters.gender == "female" %}selected{% endif %}>Женский</option>
+      </select>
+      <input type="number" min="0" name="age_min" value="{{ filters.age_min }}" placeholder="Возраст от">
+      <input type="number" min="0" name="age_max" value="{{ filters.age_max }}" placeholder="до">
+      <button class="button" type="submit">Найти</button>
+      <a class="button subtle" href="/">Сбросить</a>
+    </form>
+  </section>
+
+  <section class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Фото</th>
+          <th>Возраст</th>
+          <th>ФИО</th>
+          <th>Пол</th>
+          <th>Телефон</th>
+          <th>Действия</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for employee in employees %}
+          <tr>
+            <td>
+              {% if employee.photo_path %}
+                <img class="avatar" src="{{ employee.photo_path }}" alt="{{ employee.full_name }}">
+              {% else %}
+                <span class="avatar placeholder">{{ employee.first_name[:1] }}{{ employee.last_name[:1] }}</span>
+              {% endif %}
+            </td>
+            <td>{{ employee.birth_date | age }}</td>
+            <td>{{ employee.full_name }}</td>
+            <td><span class="gender {{ employee.gender.value }}">{{ "Мужской" if employee.gender.value == "male" else "Женский" }}</span></td>
+            <td>{{ employee.phone }}</td>
+            <td class="actions">
+              <a class="button small" href="/employees/{{ employee.id }}/edit">Изменить</a>
+              <form class="inline-form" method="post" action="/employees/{{ employee.id }}/delete" onsubmit="return confirm('Удалить сотрудника {{ employee.full_name }}?');">
+                <button class="button small danger" type="submit">Удалить</button>
+              </form>
+            </td>
+          </tr>
+        {% else %}
+          <tr>
+            <td colspan="6" class="empty">Сотрудники не найдены</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+{% endblock %}

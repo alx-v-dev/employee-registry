@@ -1,0 +1,2 @@
+"""Employee registry application package."""
+
