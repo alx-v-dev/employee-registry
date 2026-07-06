@@ -33,9 +33,9 @@
           <tr>
             <td>
               {% if employee.photo_path %}
-                <img class="avatar" src="{{ employee.photo_path }}" alt="{{ employee.full_name }}">
+                <img class="employee-photo" src="{{ employee.photo_path }}" alt="{{ employee.full_name }}">
               {% else %}
-                <span class="avatar placeholder">{{ employee.first_name[:1] }}{{ employee.last_name[:1] }}</span>
+                <span class="employee-photo employee-photo-placeholder">{{ employee.first_name[:1] }}{{ employee.last_name[:1] }}</span>
               {% endif %}
             </td>
             <td>{{ employee.birth_date | age }}</td>
@@ -45,6 +45,7 @@
             <td class="actions">
               <a class="button small" href="/employees/{{ employee.id }}/edit">Изменить</a>
               <form class="inline-form" method="post" action="/employees/{{ employee.id }}/delete" onsubmit="return confirm('Удалить сотрудника {{ employee.full_name }}?');">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                 <button class="button small danger" type="submit">Удалить</button>
               </form>
             </td>

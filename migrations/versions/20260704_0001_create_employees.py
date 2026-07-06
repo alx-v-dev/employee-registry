@@ -42,4 +42,3 @@ def downgrade() -> None:
     op.drop_index(op.f("ix_employees_last_name"), table_name="employees")
     op.drop_index(op.f("ix_employees_id"), table_name="employees")
     op.drop_table("employees")
-

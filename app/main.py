@@ -1,27 +1,19 @@
-from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
-
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.sessions import SessionMiddleware
 
-from app.config import get_settings
-from app.database import init_db
+from app.config import BASE_DIR, get_settings
 from app.repository import calculate_age
 from app.routes import router, templates
-
-
-@asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    init_db()
-    yield
 
 
 def create_app() -> FastAPI:
     settings = get_settings()
     settings.upload_dir.mkdir(parents=True, exist_ok=True)
 
-    app = FastAPI(title="Employee Registry", lifespan=lifespan)
-    app.mount("/static", StaticFiles(directory="app/static"), name="static")
+    app = FastAPI(title="Employee Registry")
+    app.add_middleware(SessionMiddleware, secret_key=settings.secret_key)
+    app.mount("/static", StaticFiles(directory=BASE_DIR / "app" / "static"), name="static")
     app.mount("/uploads", StaticFiles(directory=settings.upload_dir), name="uploads")
     templates.env.filters["age"] = calculate_age
     app.include_router(router)

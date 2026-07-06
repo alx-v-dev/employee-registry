@@ -6,33 +6,64 @@ from fastapi import UploadFile
 from app.config import get_settings
 
 
-ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
+CHUNK_SIZE = 64 * 1024
+PHOTO_TYPES_BY_EXTENSION = {
+    ".jpg": "jpeg",
+    ".jpeg": "jpeg",
+    ".png": "png",
+    ".webp": "webp",
+    ".gif": "gif",
+}
 
 
 class PhotoValidationError(ValueError):
     pass
 
 
-async def save_photo(upload: UploadFile | None, old_photo_path: str | None = None) -> str | None:
+def detect_photo_type(content: bytes) -> str | None:
+    if content.startswith(b"\xff\xd8\xff"):
+        return "jpeg"
+    if content.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "png"
+    if len(content) >= 12 and content[:4] == b"RIFF" and content[8:12] == b"WEBP":
+        return "webp"
+    if content.startswith((b"GIF87a", b"GIF89a")):
+        return "gif"
+    return None
+
+
+async def read_limited_upload(upload: UploadFile, max_size: int) -> bytes:
+    chunks: list[bytes] = []
+    total_size = 0
+
+    while chunk := await upload.read(CHUNK_SIZE):
+        total_size += len(chunk)
+        if total_size > max_size:
+            raise PhotoValidationError("Размер фото не должен превышать 200 КБ")
+        chunks.append(chunk)
+
+    return b"".join(chunks)
+
+
+async def save_photo(upload: UploadFile | None) -> str | None:
     if not upload or not upload.filename:
         return None
 
     settings = get_settings()
     extension = Path(upload.filename).suffix.lower()
-    if extension not in ALLOWED_EXTENSIONS:
+    expected_photo_type = PHOTO_TYPES_BY_EXTENSION.get(extension)
+    if expected_photo_type is None:
         raise PhotoValidationError("Фото должно быть файлом JPG, PNG, WEBP или GIF")
 
-    content = await upload.read()
-    if len(content) > settings.max_photo_size_bytes:
-        raise PhotoValidationError("Размер фото не должен превышать 200 КБ")
+    content = await read_limited_upload(upload, settings.max_photo_size_bytes)
+    detected_photo_type = detect_photo_type(content)
+    if detected_photo_type != expected_photo_type:
+        raise PhotoValidationError("Фото должно быть файлом JPG, PNG, WEBP или GIF")
 
     settings.upload_dir.mkdir(parents=True, exist_ok=True)
     filename = f"{uuid4().hex}{extension}"
     target = settings.upload_dir / filename
     target.write_bytes(content)
-
-    if old_photo_path:
-        delete_photo(old_photo_path)
 
     return f"/uploads/{filename}"
 
@@ -45,4 +76,3 @@ def delete_photo(photo_path: str | None) -> None:
     target = settings.upload_dir / filename
     if target.exists() and target.is_file():
         target.unlink()
-

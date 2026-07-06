@@ -9,17 +9,29 @@ from fastapi.templating import Jinja2Templates
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
+from app.config import BASE_DIR
 from app.database import get_db
 from app.models import Employee, Gender
 from app.photos import PhotoValidationError, delete_photo, save_photo
-from app.repository import create_employee, delete_employee, find_duplicate_employee, get_employee, list_employees, update_employee
+from app.repository import (
+    DuplicateEmployeeError,
+    count_employees,
+    create_employee,
+    delete_employee,
+    find_duplicate_employee,
+    get_employee,
+    list_employees,
+    update_employee,
+)
 from app.schemas import EmployeeForm
+from app.security import get_csrf_token, require_csrf_token
 
 
 router = APIRouter()
-templates = Jinja2Templates(directory="app/templates")
+templates = Jinja2Templates(directory=BASE_DIR / "app" / "templates")
 PAGE_SIZE = 6
 MIN_BIRTH_DATE = "1000-01-01"
+DUPLICATE_EMPLOYEE_ERROR = "Сотрудник с такими данными уже существует"
 
 
 def redirect_to_registry() -> RedirectResponse:
@@ -31,6 +43,7 @@ def max_birth_date() -> str:
 
 
 def form_context(
+    request: Request,
     employee: Employee | None,
     values: dict[str, str],
     errors: list[dict[str, object]],
@@ -46,6 +59,7 @@ def form_context(
         "max_birth_date": max_birth_date(),
         "max_photo_size": 200 * 1024,
         "duplicate_warning": duplicate_warning,
+        "csrf_token": get_csrf_token(request),
     }
 
 
@@ -156,11 +170,19 @@ def registry(
     parsed_age_max = parse_non_negative_int(age_max)
     parsed_page = parse_page(page)
 
-    employees = list_employees(db, query=q, gender=parsed_gender, age_min=parsed_age_min, age_max=parsed_age_max)
-    total_count = len(employees)
+    total_count = count_employees(db, query=q, gender=parsed_gender, age_min=parsed_age_min, age_max=parsed_age_max)
     total_pages = max(1, ceil(total_count / PAGE_SIZE))
     current_page = min(parsed_page, total_pages)
     start = (current_page - 1) * PAGE_SIZE
+    employees = list_employees(
+        db,
+        query=q,
+        gender=parsed_gender,
+        age_min=parsed_age_min,
+        age_max=parsed_age_max,
+        limit=PAGE_SIZE,
+        offset=start,
+    )
     filters = {
         "q": q or "",
         "gender": parsed_gender.value if parsed_gender else "",
@@ -173,8 +195,9 @@ def registry(
         request,
         "registry.html",
         {
-            "employees": employees[start : start + PAGE_SIZE],
+            "employees": employees,
             "filters": filters,
+            "csrf_token": get_csrf_token(request),
             "pagination": {
                 "page": current_page,
                 "total_pages": total_pages,
@@ -192,7 +215,7 @@ def new_employee(request: Request):
     return templates.TemplateResponse(
         request,
         "employee_form.html",
-        form_context(None, form_values(), [], "Новый сотрудник"),
+        form_context(request, None, form_values(), [], "Новый сотрудник"),
     )
 
 
@@ -207,8 +230,24 @@ def validation_response(
     return templates.TemplateResponse(
         request,
         "employee_form.html",
-        form_context(employee, values, errors, title, duplicate_warning=duplicate_warning),
+        form_context(request, employee, values, errors, title, duplicate_warning=duplicate_warning),
         status_code=422,
+    )
+
+
+def duplicate_response(
+    request: Request,
+    employee: Employee | None,
+    values: dict[str, str],
+    title: str,
+):
+    return validation_response(
+        request,
+        employee,
+        values,
+        [{"msg": DUPLICATE_EMPLOYEE_ERROR}],
+        title,
+        duplicate_warning=True,
     )
 
 
@@ -216,6 +255,7 @@ def validation_response(
 async def create_employee_route(
     request: Request,
     db: Session = Depends(get_db),
+    _csrf: None = Depends(require_csrf_token),
     last_name: Annotated[str, Form()] = "",
     first_name: Annotated[str, Form()] = "",
     middle_name: Annotated[str | None, Form()] = None,
@@ -231,21 +271,21 @@ async def create_employee_route(
         return validation_response(request, None, values, exc.errors(), "Новый сотрудник")
 
     if find_duplicate_employee(db, form):
-        return validation_response(
-            request,
-            None,
-            form_values(form=form),
-            [{"msg": "Сотрудник с такими данными уже существует"}],
-            "Новый сотрудник",
-            duplicate_warning=True,
-        )
+        return duplicate_response(request, None, form_values(form=form), "Новый сотрудник")
 
     try:
         photo_path = await save_photo(photo)
     except PhotoValidationError as exc:
         return validation_response(request, None, values, [{"msg": str(exc)}], "Новый сотрудник")
 
-    create_employee(db, form, photo_path=photo_path)
+    try:
+        create_employee(db, form, photo_path=photo_path)
+    except DuplicateEmployeeError:
+        delete_photo(photo_path)
+        return duplicate_response(request, None, form_values(form=form), "Новый сотрудник")
+    except Exception:
+        delete_photo(photo_path)
+        raise
     return redirect_to_registry()
 
 
@@ -257,7 +297,7 @@ def edit_employee(employee_id: int, request: Request, db: Session = Depends(get_
     return templates.TemplateResponse(
         request,
         "employee_form.html",
-        form_context(employee, form_values(employee), [], "Редактирование"),
+        form_context(request, employee, form_values(employee), [], "Редактирование"),
     )
 
 
@@ -266,6 +306,7 @@ async def update_employee_route(
     employee_id: int,
     request: Request,
     db: Session = Depends(get_db),
+    _csrf: None = Depends(require_csrf_token),
     last_name: Annotated[str, Form()] = "",
     first_name: Annotated[str, Form()] = "",
     middle_name: Annotated[str | None, Form()] = None,
@@ -284,26 +325,33 @@ async def update_employee_route(
         return validation_response(request, employee, values, exc.errors(), "Редактирование")
 
     if find_duplicate_employee(db, form, exclude_employee_id=employee.id):
-        return validation_response(
-            request,
-            employee,
-            form_values(form=form),
-            [{"msg": "Сотрудник с такими данными уже существует"}],
-            "Редактирование",
-            duplicate_warning=True,
-        )
+        return duplicate_response(request, employee, form_values(form=form), "Редактирование")
 
+    old_photo_path = employee.photo_path
     try:
-        photo_path = await save_photo(photo, old_photo_path=employee.photo_path)
+        photo_path = await save_photo(photo)
     except PhotoValidationError as exc:
         return validation_response(request, employee, values, [{"msg": str(exc)}], "Редактирование")
 
-    update_employee(db, employee, form, photo_path=photo_path)
+    try:
+        update_employee(db, employee, form, photo_path=photo_path)
+    except DuplicateEmployeeError:
+        delete_photo(photo_path)
+        return duplicate_response(request, employee, form_values(form=form), "Редактирование")
+    except Exception:
+        delete_photo(photo_path)
+        raise
+    if photo_path:
+        delete_photo(old_photo_path)
     return redirect_to_registry()
 
 
 @router.post("/employees/{employee_id}/delete")
-def delete_employee_route(employee_id: int, db: Session = Depends(get_db)):
+def delete_employee_route(
+    employee_id: int,
+    db: Session = Depends(get_db),
+    _csrf: None = Depends(require_csrf_token),
+):
     employee = get_employee(db, employee_id)
     if not employee:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)

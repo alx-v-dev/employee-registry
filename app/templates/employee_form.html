@@ -1,6 +1,8 @@
 {% extends "base.html" %}
 {% block content %}
   <form class="form" method="post" action="{{ '/employees/' ~ employee.id if employee else '/employees' }}" enctype="multipart/form-data">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+
     <div class="form-head">
       <h1>{{ title }}</h1>
     </div>
@@ -45,7 +47,7 @@
       </label>
       <label>
         <span>Телефон *</span>
-        <input name="phone" required maxlength="32" value="{{ values.phone }}" inputmode="tel" placeholder="+7 (___) ___-__-__" data-phone-input>
+        <input name="phone" required maxlength="32" value="{{ values.phone }}" inputmode="tel" placeholder="+12025550123">
       </label>
       <label>
         <span>Фото, до 200 КБ</span>
@@ -59,7 +61,7 @@
 
     {% if employee and employee.photo_path %}
       <div class="current-photo">
-        <img class="avatar" src="{{ employee.photo_path }}" alt="{{ employee.full_name }}">
+        <img class="employee-photo" src="{{ employee.photo_path }}" alt="{{ employee.full_name }}">
         <span>Текущее фото</span>
       </div>
     {% endif %}

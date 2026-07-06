@@ -3,6 +3,7 @@ from datetime import date
 from pydantic import BaseModel, Field, field_validator
 
 from app.models import Gender
+from app.normalization import normalize_phone_e164
 
 
 class EmployeeForm(BaseModel):
@@ -11,7 +12,7 @@ class EmployeeForm(BaseModel):
     middle_name: str | None = Field(default=None, max_length=80)
     birth_date: date
     gender: Gender
-    phone: str = Field(min_length=3, max_length=32)
+    phone: str
 
     @field_validator("last_name", "first_name", "middle_name", "phone", mode="before")
     @classmethod
@@ -34,6 +35,16 @@ class EmployeeForm(BaseModel):
         if not value:
             raise ValueError("Обязательное поле")
         return value
+
+    @field_validator("phone")
+    @classmethod
+    def phone_must_be_e164(cls, value: str | None) -> str:
+        if not value:
+            raise ValueError("Обязательное поле")
+        try:
+            return normalize_phone_e164(value)
+        except ValueError as exc:
+            raise ValueError("Телефон должен быть в формате E.164, например +12025550123") from exc
 
     @field_validator("birth_date")
     @classmethod
