@@ -19,6 +19,7 @@ branch_labels = None
 depends_on = None
 
 
+# Keep migrations independent from the current ORM model so historical upgrades stay stable.
 employees_table = sa.table(
     "employees",
     sa.column("id", sa.Integer()),
@@ -43,6 +44,7 @@ def normalize_phone_digits(value: str | None) -> str:
 
 
 def normalize_existing_phone(value: str | None) -> str:
+    """Best-effort phone cleanup for legacy rows before runtime E.164 validation exists."""
     digits = normalize_phone_digits(value)
     if not digits:
         return (value or "")[:16]
@@ -54,6 +56,7 @@ def employee_name_key(last_name: str, first_name: str, middle_name: str | None) 
 
 
 def backfill_employee_keys() -> None:
+    """Populate normalized employee keys before the new columns become NOT NULL."""
     connection = op.get_bind()
     rows = connection.execute(
         sa.select(
@@ -82,6 +85,7 @@ def backfill_employee_keys() -> None:
 
 
 def upgrade() -> None:
+    # Add nullable columns first so existing rows can be backfilled before NOT NULL constraints.
     op.add_column("employees", sa.Column("last_name_key", sa.String(length=80), nullable=True))
     op.add_column("employees", sa.Column("first_name_key", sa.String(length=80), nullable=True))
     op.add_column("employees", sa.Column("middle_name_key", sa.String(length=80), nullable=True))
@@ -91,6 +95,7 @@ def upgrade() -> None:
     backfill_employee_keys()
 
     op.drop_index(op.f("ix_employees_phone"), table_name="employees")
+    # SQLite needs batch mode for ALTER COLUMN and table-level constraints.
     with op.batch_alter_table("employees") as batch_op:
         batch_op.alter_column("last_name_key", existing_type=sa.String(length=80), nullable=False)
         batch_op.alter_column("first_name_key", existing_type=sa.String(length=80), nullable=False)

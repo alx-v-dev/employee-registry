@@ -8,6 +8,7 @@ from app.config import get_settings
 
 
 def create_legacy_employee_schema(connection: sa.Connection) -> None:
+    """Create the pre-normalization schema used by local databases before Alembic 0002."""
     connection.execute(
         sa.text(
             """
@@ -55,6 +56,7 @@ def test_migrations_upgrade_legacy_employee_schema(tmp_path: Path, monkeypatch) 
     get_settings.cache_clear()
     try:
         alembic_config = Config("alembic.ini")
+        # Legacy local databases match the first migration but do not have an Alembic version row.
         command.stamp(alembic_config, "20260704_0001")
         command.upgrade(alembic_config, "head")
     finally:

@@ -21,6 +21,7 @@ class PhotoValidationError(ValueError):
 
 
 def detect_photo_type(content: bytes) -> str | None:
+    """Detect the supported image type from a small set of magic byte signatures."""
     if content.startswith(b"\xff\xd8\xff"):
         return "jpeg"
     if content.startswith(b"\x89PNG\r\n\x1a\n"):
@@ -33,6 +34,7 @@ def detect_photo_type(content: bytes) -> str | None:
 
 
 async def read_limited_upload(upload: UploadFile, max_size: int) -> bytes:
+    """Read an uploaded file in chunks and fail as soon as it exceeds max_size."""
     chunks: list[bytes] = []
     total_size = 0
 
@@ -46,6 +48,7 @@ async def read_limited_upload(upload: UploadFile, max_size: int) -> bytes:
 
 
 async def save_photo(upload: UploadFile | None) -> str | None:
+    """Validate and persist a new photo, leaving rollback cleanup to the caller."""
     if not upload or not upload.filename:
         return None
 

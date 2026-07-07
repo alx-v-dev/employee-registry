@@ -12,6 +12,7 @@ def create_app() -> FastAPI:
     settings.upload_dir.mkdir(parents=True, exist_ok=True)
 
     app = FastAPI(title="Employee Registry")
+    # CSRF helpers store tokens in request.session, which is provided by this middleware.
     app.add_middleware(SessionMiddleware, secret_key=settings.secret_key)
     app.mount("/static", StaticFiles(directory=BASE_DIR / "app" / "static"), name="static")
     app.mount("/uploads", StaticFiles(directory=settings.upload_dir), name="uploads")

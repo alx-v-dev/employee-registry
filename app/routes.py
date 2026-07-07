@@ -281,9 +281,11 @@ async def create_employee_route(
     try:
         create_employee(db, form, photo_path=photo_path)
     except DuplicateEmployeeError:
+        # The file is already on disk when the DB commit fails, so remove the orphan upload.
         delete_photo(photo_path)
         return duplicate_response(request, None, form_values(form=form), "Новый сотрудник")
     except Exception:
+        # The file is already on disk when the DB commit fails, so remove the orphan upload.
         delete_photo(photo_path)
         raise
     return redirect_to_registry()

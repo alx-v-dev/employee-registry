@@ -19,6 +19,7 @@ def calculate_age(birth_date: date, today: date | None = None) -> int:
 
 
 def date_years_ago(today: date, years: int) -> date:
+    """Return the date this many full years before today, clamping leap day to Feb 28."""
     try:
         return today.replace(year=today.year - years)
     except ValueError:
@@ -26,6 +27,7 @@ def date_years_ago(today: date, years: int) -> date:
 
 
 def employee_key_values(data: EmployeeForm) -> dict[str, str]:
+    """Build denormalized keys used consistently for search and duplicate constraints."""
     return {
         "last_name_key": normalize_name_text(data.last_name),
         "first_name_key": normalize_name_text(data.first_name),
@@ -41,6 +43,7 @@ def employee_filter_statement(
     age_min: int | None = None,
     age_max: int | None = None,
 ) -> Select[tuple[Employee]]:
+    """Build the SQL predicate for registry filters without loading all employees."""
     stmt: Select[tuple[Employee]] = select(Employee)
 
     if gender:
@@ -50,6 +53,7 @@ def employee_filter_statement(
     if age_min is not None:
         stmt = stmt.where(Employee.birth_date <= date_years_ago(today, age_min))
     if age_max is not None:
+        # Age <= N means birth date is after the date when the employee would turn N + 1.
         stmt = stmt.where(Employee.birth_date > date_years_ago(today, age_max + 1))
 
     normalized_query = normalize_name_text(query)
@@ -113,6 +117,7 @@ def get_employee(db: Session, employee_id: int) -> Employee | None:
 
 
 def commit_or_raise_duplicate(db: Session) -> None:
+    """Commit a unit of work and expose unique-constraint conflicts as a domain error."""
     try:
         db.commit()
     except IntegrityError as exc:
